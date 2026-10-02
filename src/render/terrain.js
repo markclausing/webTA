@@ -236,6 +236,7 @@ export class Terrain {
     this.buildSea();
     this.buildTrees();
     this.buildCities();
+    this.buildFog();
   }
 
   /** Bilinear read of a float grid laid over the map, row 0 north. */
@@ -454,7 +455,7 @@ export class Terrain {
 
           col = pow(col, vec3(2.2));
           float fog = smoothstep(uFogNear, uFogFar, vViewDist);
-          col = mix(col, uFogColor, max(fog, (1.0 - inside) * 0.35));
+          col = mix(col, uFogColor, fog);
           gl_FragColor = vec4(col, 1.0);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
@@ -617,6 +618,83 @@ export class Terrain {
       }
     }
     this.ownerTex.needsUpdate = true;
+  }
+
+  /**
+   * The edge of the world: clouds that thicken towards the frame until nothing
+   * shows through, so the map fades out instead of stopping at a cliff. Three
+   * layers at different heights, each drifting its own way, so the fog has depth
+   * when the camera moves. They sit above everything, trees and units included,
+   * which is what lets a column march out of the murk near Murmansk.
+   */
+  buildFog() {
+    const size = Math.max(W, H) * 4;
+    this.fog = [];
+    const layers = [
+      { y: 22, scale: 0.0016, speed: [0.004, 0.002], reach: 0, alpha: 1 },
+      { y: 36, scale: 0.0028, speed: [-0.003, 0.004], reach: 90, alpha: 0.8 },
+      { y: 54, scale: 0.0045, speed: [0.005, -0.003], reach: 170, alpha: 0.55 },
+    ];
+    for (const L of layers) {
+      const geo = new THREE.PlaneGeometry(size, size, 1, 1);
+      geo.rotateX(-Math.PI / 2);
+      geo.translate(X0 + W / 2, L.y, -(Y0 + H / 2));
+      const mat = new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: this.uniforms.uTime,
+          uSun: this.uniforms.uSun,
+          uMin: { value: new THREE.Vector2(X0, Y0) },
+          uMax: { value: new THREE.Vector2(X1, Y1) },
+          uScale: { value: L.scale },
+          uSpeed: { value: new THREE.Vector2(...L.speed) },
+          uReach: { value: L.reach },
+          uAlpha: { value: L.alpha },
+        },
+        vertexShader: /* glsl */`
+          varying vec2 vMap;
+          void main() {
+            vec4 w = modelMatrix * vec4(position, 1.0);
+            vMap = vec2(w.x, -w.z);
+            gl_Position = projectionMatrix * viewMatrix * w;
+          }
+        `,
+        fragmentShader: /* glsl */`
+          uniform float uTime, uScale, uReach, uAlpha;
+          uniform vec2 uMin, uMax, uSpeed;
+          varying vec2 vMap;
+          ${NOISE}
+          void main() {
+            // Signed distance to the frame of the map: negative inside, in km.
+            vec2 d2 = max(uMin - vMap, vMap - uMax);
+            float d = length(max(d2, 0.0)) + min(max(d2.x, d2.y), 0.0);
+            vec2 p = vMap * uScale + uSpeed * uTime * 60.0;
+            float n = fbm(p);
+            float n2 = fbm(p * 2.3 + 7.0);
+            // Ragged edge: the noise pushes the cloud bank in and out.
+            float edge = d + uReach + (n - 0.5) * 260.0;
+            float a = smoothstep(-300.0, 40.0, edge);
+            a *= smoothstep(0.15, 0.55, n * 0.7 + n2 * 0.5 + a * 0.6);
+            a = clamp(a * uAlpha + smoothstep(60.0, 260.0, d), 0.0, 1.0);
+            if (a < 0.004) discard;
+            // Lit from the sun's side, darker in the folds; a cold war-room grey-blue.
+            vec3 lit = vec3(0.84, 0.88, 0.93);
+            vec3 shade = vec3(0.46, 0.53, 0.62);
+            vec3 col = mix(shade, lit, smoothstep(0.3, 0.8, n2 * 0.6 + n * 0.5));
+            col = pow(col, vec3(2.2));
+            gl_FragColor = vec4(col, a);
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+          }
+        `,
+        transparent: true,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.renderOrder = 8;
+      mesh.frustumCulled = false;
+      this.group.add(mesh);
+      this.fog.push(mesh);
+    }
   }
 
   update(dt, camDist) {
