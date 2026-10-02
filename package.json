@@ -1,0 +1,15 @@
+{
+  "name": "webta",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Article 5: hold Europe against a swarm from the east. Real-time strategy meets tower defence, in the browser, no build step.",
+  "scripts": {
+    "start": "node server/board.js",
+    "test": "node tools/simtest.js && node tools/boardtest.js",
+    "test:sim": "node tools/simtest.js",
+    "test:board": "node tools/boardtest.js",
+    "test:ui": "node tools/uitest.js",
+    "map": "node tools/build-map.js"
+  }
+}

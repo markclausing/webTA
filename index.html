@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Article 5</title>
+  <meta name="description" content="Hold Europe against a swarm from the east. Real-time strategy meets tower defence, in the browser.">
+  <meta name="theme-color" content="#0b1320">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/build/three.module.js",
+        "three/addons/": "./vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="labels"></div>
+
+  <div id="loading" class="overlay">
+    <div class="loader">
+      <div class="radar"><span></span></div>
+      <p id="loadingText">SURVEYING EUROPE</p>
+    </div>
+  </div>
+
+  <!-- In-game HUD -->
+  <div id="hud" class="hidden">
+    <div class="topbar">
+      <div class="pill funds" title="Defence budget">
+        <span class="coin">€</span><b id="funds">0</b><small>M</small>
+      </div>
+      <div class="pill wave">
+        <div class="waveLine"><span class="k">WAVE</span> <b id="waveNo">0</b><span class="dim">/<span id="waveMax">15</span></span></div>
+        <div class="waveTitle" id="waveTitle">STAND BY</div>
+      </div>
+      <div class="pill losses" title="Everything this war has cost you. Lower is better.">
+        <span class="k">LOSSES</span><b id="losses">0</b>
+      </div>
+      <div class="pill status">
+        <span title="Ground held"><span class="k">HELD</span> <b id="held">100</b>%</span>
+        <span title="Capitals lost - lose too many and the war is over"><span class="k">CAPITALS</span> <b id="capitals">0</b>/<span id="capitalsMax">6</span></span>
+      </div>
+    </div>
+
+    <div id="feed"></div>
+
+    <div id="buildbar"></div>
+
+    <div class="corner">
+      <button id="btnPause" class="round small" title="Pause (Esc)">❚❚</button>
+      <button id="btnSpeed" class="round small" title="Speed (F)">1×</button>
+      <button id="btnWave" class="round big" title="Next wave (Space)">
+        <svg viewBox="0 0 100 100" class="ring"><circle cx="50" cy="50" r="46" id="waveRing"/></svg>
+        <span class="lbl" id="waveBtnLbl">START</span>
+        <span class="bonus" id="waveBonus"></span>
+      </button>
+    </div>
+
+    <div id="banner" class="hidden"><div class="k" id="bannerKicker"></div><div class="big" id="bannerBig"></div><div class="sub" id="bannerSub"></div></div>
+    <div id="hint" class="hidden"></div>
+  </div>
+
+  <!-- Radial menus live on top of the map, where you tapped -->
+  <div id="radial" class="hidden"></div>
+  <div id="unitCard" class="hidden"></div>
+
+  <!-- Title -->
+  <div id="menu" class="overlay hidden">
+    <div class="menuGrid">
+      <section class="titleBlock">
+        <div class="kicker">NATO · COLLECTIVE DEFENCE</div>
+        <h1>ARTICLE <span class="five">5</span></h1>
+        <p class="tag">An attack on one is an attack on all. Hold Europe against the swarm from the east - and lose as little of it as you can.</p>
+        <div class="opts">
+          <div class="opt"><span class="k">DIFFICULTY</span>
+            <div class="seg" id="optDifficulty">
+              <button data-v="recruit">RECRUIT</button><button data-v="veteran">VETERAN</button><button data-v="general">GENERAL</button>
+            </div>
+          </div>
+          <div class="opt"><span class="k">GRAPHICS</span><button class="v" id="optQuality">AUTO</button></div>
+          <div class="opt"><span class="k">SOUND</span><button class="v" id="optSound">ON</button></div>
+        </div>
+        <button id="play" class="primary">DEPLOY</button>
+        <p class="fine">Drag to move the map · pinch or scroll to zoom · tap to deploy</p>
+      </section>
+      <aside class="side">
+        <div class="card">
+          <h3>LEAST LOST <span id="scoresLevel" class="dim"></span></h3>
+          <table class="scores"><tbody id="scoresBody"></tbody></table>
+          <p class="fine" id="scoresNote"></p>
+        </div>
+        <div class="card how">
+          <h3>BRIEFING</h3>
+          <ul>
+            <li><b>Tap the map</b> to deploy: infantry and tanks on our ground, frigates at sea, drones and fighters anywhere we hold.</li>
+            <li><b>Tap a unit</b> to upgrade, move or stand it down. Right click moves the selected unit.</li>
+            <li><b>Every loss is charged</b>: ground, cities, your own units, and every drone that gets through.</li>
+            <li><b>Infantry and tanks take ground back</b>, and liberate fallen cities.</li>
+            <li><b>A fallen city raises troops</b> for the enemy. Take it back before the swarm grows.</li>
+            <li><b>Call waves early</b> for extra budget.</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="panel">
+      <h2>PAUSED</h2>
+      <button id="resume" class="primary">RESUME</button>
+      <button id="restart">RESTART</button>
+      <button id="quit">BACK TO THE MENU</button>
+    </div>
+  </div>
+
+  <div id="gameover" class="overlay hidden">
+    <div class="panel wide">
+      <div class="kicker" id="overKicker">AFTER ACTION REPORT</div>
+      <h2 id="overTitle">VICTORY</h2>
+      <p class="status" id="overLine"></p>
+      <table class="stats" id="overStats"></table>
+      <div id="nameRow" class="nameRow hidden">
+        <label for="nameInput">ON THE BOARD - YOUR INITIALS</label>
+        <div class="nameInputs"><input id="nameInput" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="nameOk" class="primary">SAVE</button></div>
+      </div>
+      <div class="row">
+        <button id="overAgain" class="primary">AGAIN</button>
+        <button id="overMenu">MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

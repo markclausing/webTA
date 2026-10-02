@@ -1,0 +1,20 @@
+# Deploy with:  npx wrangler login  &&  npx wrangler deploy
+#
+# A Worker of its own rather than one of the other games', on purpose: the board
+# lives in a single Durable Object under one key, so sharing a Worker would mean
+# basketball results and wars in one table.
+
+name = "webta"
+main = "index.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+GAME_URL = "https://markclausing.github.io/webTA/"
+
+[[durable_objects.bindings]]
+name = "BOARD"
+class_name = "Board"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Board"]

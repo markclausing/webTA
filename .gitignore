@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+*.log
+highscores.json
+.wrangler/
+worker/.admin-key
+shots/
+tools/.cache/
