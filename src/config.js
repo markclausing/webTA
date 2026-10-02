@@ -15,7 +15,7 @@
  *
  *   export const DEFAULT_BOARD = 'https://webta.your-name.workers.dev';
  */
-export const DEFAULT_BOARD = '';
+export const DEFAULT_BOARD = 'https://webta.vibecoach.workers.dev';
 
 /**
  * Which server this page should talk to. A `?board=` in the address always wins,

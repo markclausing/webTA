@@ -1,9 +1,9 @@
 # The score board
 
-Not deployed yet: `DEFAULT_BOARD` in `src/config.js` is empty, so every
-browser keeps its own board. The Worker answers `GET /highscores` and
-`POST /highscores`, holds one Durable Object, and can have an admin key set for
-taking rows off again.
+Deployed at **https://webta.vibecoach.workers.dev**, which is the address in
+`src/config.js`. It answers `GET /highscores` and `POST /highscores`, holds one
+Durable Object, posts new results to Discord when a webhook is set, and can have
+an admin key set for taking rows off again.
 
 Two commands and the board is shared:
 
@@ -30,6 +30,22 @@ one:
 ```
 http://localhost:8080/?board=https://webta.your-name.workers.dev
 ```
+
+## Announcing new results
+
+```sh
+npx wrangler secret put DISCORD_WEBHOOK
+```
+
+Paste a Discord webhook URL. Every result that actually lands in a top ten is
+posted - a win as the waves held and the bill, a defeat as how far it got; a
+result that missed the board, or one arriving for the second time from a second
+device, is not. The same channel can take every game in the family: the message
+says which one it came from.
+
+It is a secret and it is treated as one: it lives in `wrangler secret`, never in
+this repository. What it says is checked by `npm run test:board`, which runs the
+wording through every case without a network anywhere near it.
 
 ## The broom
 

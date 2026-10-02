@@ -4,6 +4,7 @@
 
 import { merge, since, without, qualifies, placeOf, cleanEntry, Highscores, TABLE_SIZE } from '../src/highscores.js';
 import { WAVES } from '../src/game/waves.js';
+import { announcement, newRows } from '../worker/announce.js';
 
 let failures = 0;
 function ok(what, passed) {
@@ -60,6 +61,21 @@ ok('names are three letters of the alphabet', cleanEntry(row('a', 'm!x9zz', 3, 1
   const h = new Highscores(mem);
   const place = h.add('general', row('q', 'MJC', ALL, 33000));
   ok('the board keeps what it is given', place === 1 && new Highscores(mem).table('general')[0].name === 'MJC');
+}
+
+// --- What Discord hears ---------------------------------------------------------------------
+
+{
+  const before = merge({}, { veteran: [row('a', 'AAA', ALL, 30000)] });
+  const after = merge(before, { veteran: [row('b', 'MJC', ALL, 12000)], general: [row('c', 'XYZ', 7, 50000)] });
+  const rows = newRows(before, after);
+  ok('only new rows are news', rows.length === 2 && rows.every((r) => r.entry.id !== 'a'));
+  const text = announcement(rows).embeds[0].description;
+  ok('a win says it held every wave', text.includes('MJC') && text.includes(`held all ${ALL} waves`) && text.includes('veteran'));
+  ok('a defeat says how far it got', text.includes('held out 7 waves on general'));
+  ok('the same result twice is not news twice', newRows(after, merge(after, { veteran: [row('b', 'MJC', ALL, 12000)] })).length === 0);
+  ok('nobody gets pinged', announcement(rows).allowed_mentions.parse.length === 0);
+  console.log(`\n  ${text.split('\n').join('\n  ')}\n`);
 }
 
 if (failures) {

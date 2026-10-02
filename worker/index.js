@@ -2,7 +2,7 @@
  * The score board, as a Cloudflare Worker.
  *
  * This is the only server the game has: the board, one Durable Object with one
- * key in it. Lifted from webfiba, minus the Discord announcements.
+ * key in it. Lifted from webfiba.
  *
  * It speaks exactly what server/board.js speaks, so the browser cannot tell
  * which one it is talking to and neither can the tests.
@@ -11,6 +11,7 @@
  */
 
 import { merge, since, without } from '../src/highscores.js';
+import { announcement, newRows } from './announce.js';
 
 const MAX_BODY = 64 * 1024;
 
@@ -83,6 +84,10 @@ export class Board {
     if (JSON.stringify(after) !== JSON.stringify(before)) {
       this.board = after;
       await this.state.storage.put('board', after);
+      // Anything that actually landed gets announced. Worked out from the board
+      // rather than from what was sent, so a result that did not make the top ten
+      // stays quiet and a result arriving for the second time is not news.
+      await this.shout(newRows(before, after));
     }
     return json({ board: after });
   }
@@ -151,6 +156,36 @@ export class Board {
     if (!key) return json({ error: 'no ADMIN_KEY set on this Worker' }, 404);
     if (request.headers.get('x-admin-key') !== key) return json({ error: 'wrong key' }, 403);
     return null;
+  }
+
+  /**
+   * Tells Discord about it, if a webhook has been set.
+   *
+   * Discord being slow, rate limiting us or simply down must not make posting
+   * a result fail: every failure is caught and logged, never thrown. The board
+   * is the product here; the announcement is a nicety.
+   */
+  shout(rows) {
+    const url = this.env?.DISCORD_WEBHOOK;
+    if (!rows.length) return;
+    if (!url) {
+      console.log('announce: no DISCORD_WEBHOOK on this Worker');
+      return;
+    }
+    // Awaited, with a short fuse. Left to run after the response, the post was
+    // cut off with the request and never arrived; four seconds is plenty for
+    // Discord and a slow Discord still cannot hold up a score for long.
+    const post = fetch(url, {
+      signal: AbortSignal.timeout(4000),
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(announcement(rows, this.env?.GAME_URL)),
+    }).then(async (res) => {
+      // Logged either way, so `wrangler tail` can say why a post did not appear.
+      if (res.ok) console.log(`announce: posted ${rows.length} row(s)`);
+      else console.log(`announce: Discord said ${res.status} ${(await res.text()).slice(0, 300)}`);
+    }).catch((err) => console.log(`announce: failed ${err.message}`));
+    return post;
   }
 }
 

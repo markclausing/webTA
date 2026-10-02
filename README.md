@@ -125,9 +125,11 @@ the menu or force it with `?quality=low|medium|high|ultra`.
 
 ## The score board
 
-Kept in localStorage per browser. Point `DEFAULT_BOARD` in `src/config.js` at a
-deployed copy of the Worker in `worker/` and every copy of the page shares one
-board; `npm start` serves the same two calls locally. See `worker/README.md`.
+Kept in localStorage, merged with a shared board: the Cloudflare Worker in
+`worker/`, live at https://webta.vibecoach.workers.dev. New results that make a
+top ten are posted to Discord. `npm start` serves the same two calls locally,
+and `?board=` in the address points a page at any other board. See
+`worker/README.md`.
 
 ## Tools
 
